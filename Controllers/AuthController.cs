@@ -1,5 +1,8 @@
 using BankAPI.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Text;
 using System.Security.Claims;
 
 namespace BankAPI.Controllers
@@ -9,30 +12,38 @@ namespace BankAPI.Controllers
   public class AuthController : ControllerBase
   {
     private readonly BankDBContext _context;
-    public AuthController(BankDBContext context)
+    private readonly IConfiguration _config;
+    public AuthController(BankDBContext context, IConfiguration config)
     {
       _context = context;
+      _config = config;
     }
 
     [HttpPost]
     public IActionResult AuthUser([FromBody] Client client)
     {
-      var User = _context.Client.Where(u => u.CLogin == client.CLogin && u.CPassword == client.CPassword).Select(u => u.ClientId).ToList();
+      var User = _context.Client.Where(u => u.CLogin == client.CLogin && u.CPassword == client.CPassword && u.IsActive).Select(u => u.ClientId).ToList();
 
       if (User.Count != 0)
       {
-        return SignIn(new ClaimsPrincipal(new ClaimsIdentity(
-          [
-            new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
-            new Claim("my_role_claim_extravaganza", "client"),
-            new Claim("client_id", User[0].ToString())
-          ],
-          "cookie",
-          nameType:null,
-          roleType: "my_role_claim_extravaganza"
-        )),
-        authenticationScheme: "cookie"
+        var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]));
+        var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+
+        var claims = new List<Claim>
+        {
+          new Claim("client_id", User[0].ToString())
+        };
+
+        var Sectoken = new JwtSecurityToken(_config["Jwt:Issuer"],
+          _config["Jwt:Issuer"],
+          claims,
+          expires: DateTime.Now.AddMinutes(120),
+          signingCredentials: credentials
         );
+
+        var token =  new JwtSecurityTokenHandler().WriteToken(Sectoken);
+
+        return Ok(token);
       }
       else
         return Unauthorized();

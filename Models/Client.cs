@@ -9,8 +9,10 @@ namespace BankAPI.Models
     public string FirstName { get; set; } = "";
     public string SecondName { get; set; } = "";
     public string LastName { get; set; } = "";
-    // Dopisać datę urodzenia
+    public DateOnly DateOfBirth { get; set; } = DateOnly.MinValue;
     public string CLogin { get; set; } = "";
     public string CPassword { get; set; } = "";
+    public string verifyCod { get; set; } = "";
+    public bool IsActive { get; set; } = false;
   }
 }
